@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>專業板材切割優化計算器 (Cutting Optimizer)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49'
+            },
+            industrial: {
+              800: '#1e293b',
+              900: '#0f172a'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: #fff !important; color: #000 !important; }
+      .card-box { border: 1px solid #ccc !important; box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
+
+  <!-- Header -->
+  <header class="bg-industrial-900 text-white shadow-lg sticky top-0 z-30 border-b border-slate-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-brand-500 rounded-lg shadow-inner text-white">
+          <i class="fa-solid fa-shapes text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight flex items-center gap-2">
+            板材切割優化計算器
+            <span class="text-xs bg-brand-700 text-brand-100 px-2 py-0.5 rounded-full font-normal">v3.0 不鏽鋼專用</span>
+          </h1>
+          <p class="text-xs text-slate-400">二維排版優化與板材重量排樣試算 (刀縫 0mm)</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 no-print">
+        <button onclick="loadSampleData()" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-md transition text-slate-200">
+          <i class="fa-solid fa-flask mr-1"></i>載入示範數據
+        </button>
+        <button onclick="window.print()" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-md transition text-slate-200">
+          <i class="fa-solid fa-print mr-1"></i>列印報表
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+    <!-- Top Control Bar -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-5 card-box">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+        <!-- Optimization Mode Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">優化計算主目標</label>
+          <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            <button type="button" id="modeProductBtn" onclick="setMode('product')" class="py-2 px-3 text-xs font-medium rounded-md transition shadow-sm bg-white text-brand-700 border border-slate-200">
+              <i class="fa-solid fa-boxes-stacked mr-1"></i>以產品數量為主
+            </button>
+            <button type="button" id="modeStockBtn" onclick="setMode('stock')" class="py-2 px-3 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900">
+              <i class="fa-solid fa-layer-group mr-1"></i>以既有板材為主
+            </button>
+          </div>
+          <p id="modeDesc" class="text-xs text-slate-500 mt-1.5">
+            以滿足指定產品清單為優先，計算最少需消耗的板材張數與耗材成本。
+          </p>
+        </div>
+
+        <!-- Cutting Options (Rotation toggle only) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            旋轉切割方向
+          </label>
+          <div class="h-10 flex items-center">
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="allowRotation" checked class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+              <span class="ml-2.5 text-xs font-medium text-slate-700">允許 90° 轉向裁切</span>
+            </label>
+          </div>
+          <span class="text-[11px] text-slate-400">刀縫已預設為 0mm (無鋸路消耗)</span>
+        </div>
+
+        <!-- Calculate Trigger Button -->
+        <div class="flex items-center justify-end">
+          <button onclick="calculateOptimization()" class="w-full md:w-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-calculator"></i>
+            <span>開始執行優化計算</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <!-- Card 1: Products List -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col card-box">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-blue-100 text-blue-700 rounded-lg text-sm">
+              <i class="fa-solid fa-cube"></i>
+            </span>
+            <div>
+              <h2 class="font-bold text-slate-800 text-base">一、所需產品清單 (Parts to Cut)</h2>
+              <p class="text-xs text-slate-400">長寬範圍: 1~9999mm | 厚度: 0.3~10mm | 數量: 1~9999</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 no-print">
+            <button onclick="addProductRow()" class="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-md font-medium transition flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> 新增項次
+            </button>
+            <button onclick="clearProducts()" class="p-1.5 text-xs text-slate-400 hover:text-red-600 transition" title="清空全部">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Products Table -->
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full text-left text-xs border-collapse min-w-[620px]">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
+                <th class="py-2.5 px-2 w-12 text-center">項次</th>
+                <th class="py-2.5 px-2 w-24">長度 (mm)</th>
+                <th class="py-2.5 px-2 w-24">寬度 (mm)</th>
+                <th class="py-2.5 px-2 w-24">厚度 (mm)</th>
+                <th class="py-2.5 px-2 w-20">數量</th>
+                <th class="py-2.5 px-2 w-28">數量性質</th>
+                <th class="py-2.5 px-2 w-32">材質 / 密度</th>
+                <th class="py-2.5 px-2 w-24 text-right">預估總重</th>
+                <th class="py-2.5 px-2 w-12 text-center no-print">動作</th>
+              </tr>
+            </thead>
+            <tbody id="productTableBody" class="divide-y divide-slate-100">
+              <!-- Dynamically populated via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center text-xs text-slate-500">
+          <span>共 <strong id="prodCountDisplay" class="text-slate-700">0</strong> 項產品</span>
+          <span>產品預估總重: <strong id="prodWeightDisplay" class="text-brand-600 text-sm">0.00 kg</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 2: Stock Sheets List -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col card-box">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm">
+              <i class="fa-solid fa-square-full"></i>
+            </span>
+            <div>
+              <h2 class="font-bold text-slate-800 text-base">二、母板材規格與庫存 (Stock Sheets)</h2>
+              <p class="text-xs text-slate-400">長寬範圍: 1~9999mm | 厚度: 0.3~10mm | 數量: 1~9999</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 no-print">
+            <button onclick="addStockRow()" class="px-3 py-1.5 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-md font-medium transition flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> 新增項次
+            </button>
+            <button onclick="clearStocks()" class="p-1.5 text-xs text-slate-400 hover:text-red-600 transition" title="清空全部">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stock Table -->
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full text-left text-xs border-collapse min-w-[580px]">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
+                <th class="py-2.5 px-2 w-12 text-center">項次</th>
+                <th class="py-2.5 px-2 w-24">長度 (mm)</th>
+                <th class="py-2.5 px-2 w-24">寬度 (mm)</th>
+                <th class="py-2.5 px-2 w-24">厚度 (mm)</th>
+                <th class="py-2.5 px-2 w-20">數量</th>
+                <th class="py-2.5 px-2 w-32">材質 / 密度</th>
+                <th class="py-2.5 px-2 w-28 text-right">單片 / 總重</th>
+                <th class="py-2.5 px-2 w-12 text-center no-print">動作</th>
+              </tr>
+            </thead>
+            <tbody id="stockTableBody" class="divide-y divide-slate-100">
+              <!-- Dynamically populated via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center text-xs text-slate-500">
+          <span>共 <strong id="stockCountDisplay" class="text-slate-700">0</strong> 項板材</span>
+          <span>板材總重: <strong id="stockWeightDisplay" class="text-emerald-600 text-sm">0.00 kg</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optimization Results Section -->
+    <div id="resultsSection" class="space-y-6 hidden">
+      <!-- Summary Metrics Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">使用母板總張數</div>
+          <div class="text-2xl font-bold text-slate-800 mt-1" id="statSheetsUsed">0 張</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">板材規格已配置</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">綜合板材利用率</div>
+          <div class="text-2xl font-bold text-emerald-600 mt-1" id="statYieldRate">0.0%</div>
+          <div class="text-[11px] text-slate-400 mt-0.5" id="statScrapRate">廢料率: 0.0%</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">產出產品總件數</div>
+          <div class="text-2xl font-bold text-blue-600 mt-1" id="statPartsCut">0 件</div>
+          <div class="text-[11px] text-slate-400 mt-0.5" id="statPartsTarget">未排件數: 0</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">總利用面積 / 廢料面積</div>
+          <div class="text-sm font-bold text-slate-700 mt-1" id="statAreaUsed">0 m²</div>
+          <div class="text-xs text-rose-500 mt-0.5" id="statAreaWaste">廢料 0 m²</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">總材料重 / 成品淨重</div>
+          <div class="text-sm font-bold text-slate-700 mt-1" id="statStockWeight">0.0 kg</div>
+          <div class="text-xs text-emerald-600 mt-0.5" id="statPartWeight">淨重 0.0 kg</div>
+        </div>
+      </div>
+
+      <!-- Interactive Canvas & Cut Layout Viewer -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 card-box">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+          <div class="flex items-center gap-3">
+            <span class="p-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm">
+              <i class="fa-solid fa-map"></i>
+            </span>
+            <div>
+              <h2 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                三、視覺化排版圖 (Interactive Cutting Layout)
+                <span id="canvasSheetBadge" class="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-mono">第 1 / 1 張</span>
+              </h2>
+              <p class="text-xs text-slate-400">無刀縫裁切佈局；斜線區為餘料/廢料區</p>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+              <button onclick="prevSheet()" class="px-2.5 py-1 text-xs rounded hover:bg-white text-slate-700 transition" title="上一張">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <select id="sheetSelect" onchange="switchSheet(this.value)" class="text-xs bg-transparent border-0 font-medium px-2 py-1 focus:ring-0">
+                <!-- Populated via JS -->
+              </select>
+              <button onclick="nextSheet()" class="px-2.5 py-1 text-xs rounded hover:bg-white text-slate-700 transition" title="下一張">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+
+            <button onclick="exportCanvasImage()" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 font-medium transition flex items-center gap-1">
+              <i class="fa-solid fa-download"></i> 下載排樣圖 (PNG)
+            </button>
+            <button onclick="exportCutPlanCSV()" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 font-medium transition flex items-center gap-1">
+              <i class="fa-solid fa-file-csv"></i> 匯出清單 (CSV)
+            </button>
+          </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="relative w-full bg-slate-900 rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center p-4 min-h-[460px]">
+          <canvas id="layoutCanvas" class="max-w-full rounded shadow-2xl bg-white"></canvas>
+        </div>
+
+        <!-- Legend / Palette info -->
+        <div class="mt-4 flex flex-wrap items-center justify-between text-xs gap-3">
+          <div class="flex flex-wrap items-center gap-4 text-slate-600" id="layoutLegend">
+            <!-- Dynamic color legends -->
+          </div>
+          <div class="text-slate-400 text-[11px]">
+            * 圖塊標記包含：項次編號、外觀尺寸 (長×寬 mm)、座標 (X, Y)
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Breakdown Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 card-box">
+        <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-slate-500"></i>
+          裁切明細與各板排樣清單 (Cut Breakdown)
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th class="py-2 px-3">板材序號</th>
+                <th class="py-2 px-3">母板尺寸 (mm)</th>
+                <th class="py-2 px-3">容納成品件數</th>
+                <th class="py-2 px-3">排樣明細 (項次 x 數量)</th>
+                <th class="py-2 px-3">單板利用率</th>
+                <th class="py-2 px-3 text-right">殘料廢料面積 (m²)</th>
+              </tr>
+            </thead>
+            <tbody id="breakdownTableBody" class="divide-y divide-slate-100">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-slate-800 text-slate-400 text-xs py-4 border-t border-slate-700 mt-12 no-print">
+    <div class="max-w-7xl mx-auto px-4 flex flex-wrap justify-between items-center gap-2">
+      <div>
+        專業不鏽鋼板材切割優化演算法工具 © 2026
+      </div>
+      <div>
+        公式：重量(kg) = 長(mm) × 寬(mm) × 厚度(mm) × 密度(g/cm³) / 1,000,000 × 數量
+      </div>
+    </div>
+  </footer>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition duration-300 pointer-events-none px-4 py-3 rounded-lg shadow-xl text-white text-xs font-semibold flex items-center gap-2"></div>
+
+  <script>
+    // Stainless steel density presets
+    const DENSITY_PRESETS = [
+      { name: '304', density: 7.93 },
+      { name: '316', density: 7.98 },
+      { name: '430', density: 7.70 }
+    ];
+
+    let currentMode = 'product'; // 'product' | 'stock'
+    let currentSheetIndex = 0;
+    let packingResults = null;
+
+    const PALETTE = [
+      '#0284c7', '#0d9488', '#e11d48', '#d97706', '#7c3aed', 
+      '#2563eb', '#059669', '#c026d3', '#ea580c', '#4f46e5'
+    ];
+
+    let products = [];
+    let stocks = [];
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.innerText = message;
+      toast.className = 'fixed bottom-5 right-5 z-50 transition duration-300 pointer-events-auto px-4 py-3 rounded-lg shadow-xl text-white text-xs font-semibold flex items-center gap-2 transform translate-y-0 opacity-100';
+      if (type === 'error') toast.classList.add('bg-rose-600');
+      else if (type === 'success') toast.classList.add('bg-emerald-600');
+      else toast.classList.add('bg-slate-800');
+
+      setTimeout(() => {
+        toast.classList.replace('translate-y-0', 'translate-y-20');
+        toast.classList.replace('opacity-100', 'opacity-0');
+      }, 3000);
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      const btnProd = document.getElementById('modeProductBtn');
+      const btnStock = document.getElementById('modeStockBtn');
+      const desc = document.getElementById('modeDesc');
+
+      if (mode === 'product') {
+        btnProd.className = 'py-2 px-3 text-xs font-medium rounded-md transition shadow-sm bg-white text-brand-700 border border-slate-200';
+        btnStock.className = 'py-2 px-3 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900';
+        desc.innerText = '以滿足指定產品清單為優先，計算最少需消耗的板材張數與耗材成本。';
+      } else {
+        btnStock.className = 'py-2 px-3 text-xs font-medium rounded-md transition shadow-sm bg-white text-brand-700 border border-slate-200';
+        btnProd.className = 'py-2 px-3 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900';
+        desc.innerText = '以既有母板材數量為主，最大化填滿利用現有板材，優先填補標註為「可增減」的彈性需求。';
+      }
+    }
+
+    function calcWeightKg(l, w, t, d, qty = 1) {
+      const vol_mm3 = (parseFloat(l) || 0) * (parseFloat(w) || 0) * (parseFloat(t) || 0);
+      const density = parseFloat(d) || 0;
+      return ((vol_mm3 * density) / 1000000) * (parseFloat(qty) || 0);
+    }
+
+    // Input boundary clamping
+    function clampVal(val, min, max, defaultVal = min) {
+      let num = parseFloat(val);
+      if (isNaN(num)) return defaultVal;
+      if (num < min) return min;
+      if (num > max) return max;
+      return num;
+    }
+
+    function addProductRow(data = null) {
+      const id = Date.now() + Math.random().toString(36).substr(2, 4);
+      const p = data || {
+        id,
+        length: 600,
+        width: 400,
+        thickness: 2.0,
+        qty: 10,
+        flex: false,
+        material: '304',
+        density: 7.93
+      };
+      products.push(p);
+      renderProductTable();
+    }
+
+    function removeProduct(id) {
+      products = products.filter(item => item.id !== id);
+      renderProductTable();
+    }
+
+    function clearProducts() {
+      if (confirm('確定清空所有產品項次嗎？')) {
+        products = [];
+        renderProductTable();
+      }
+    }
+
+    function updateProduct(id, key, value) {
+      const p = products.find(item => item.id === id);
+      if (!p) return;
+
+      if (key === 'flex') {
+        p.flex = (value === 'true' || value === true);
+      } else if (key === 'material') {
+        p.material = value;
+        const found = DENSITY_PRESETS.find(d => d.name === value);
+        if (found) p.density = found.density;
+        renderProductTable();
+        return;
+      } else if (key === 'density') {
+        p.density = parseFloat(value) || 0;
+        const match = DENSITY_PRESETS.find(d => d.density === p.density);
+        p.material = match ? match.name : '自訂';
+      } else if (key === 'length' || key === 'width') {
+        p[key] = clampVal(value, 1, 9999, 1);
+      } else if (key === 'thickness') {
+        p[key] = clampVal(value, 0.3, 10.0, 1.0);
+      } else if (key === 'qty') {
+        p[key] = clampVal(value, 1, 9999, 1);
+      }
+      renderProductTable(false);
+    }
+
+    function renderProductTable(rebuildRows = true) {
+      const tbody = document.getElementById('productTableBody');
+      if (rebuildRows) {
+        tbody.innerHTML = '';
+        products.forEach((p, idx) => {
+          const totalWeight = calcWeightKg(p.length, p.width, p.thickness, p.density, p.qty);
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition';
+          tr.innerHTML = `
+            <td class="py-2.5 px-2 text-center text-slate-700 font-bold font-mono">#${idx + 1}</td>
+            <td class="py-2 px-2">
+              <input type="number" min="1" max="9999" step="1" value="${p.length}" onchange="updateProduct('${p.id}', 'length', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-mono text-center">
+            </td>
+            <td class="py-2 px-2">
+              <input type="number" min="1" max="9999" step="1" value="${p.width}" onchange="updateProduct('${p.id}', 'width', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-mono text-center">
+            </td>
+            <td class="py-2 px-2">
+              <input type="number" min="0.3" max="10" step="0.1" value="${p.thickness}" onchange="updateProduct('${p.id}', 'thickness', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-mono text-center">
+            </td>
+            <td class="py-2 px-2">
+              <input type="number" min="1" max="9999" step="1" value="${p.qty}" onchange="updateProduct('${p.id}', 'qty', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-bold text-slate-800 text-center font-mono">
+            </td>
+            <td class="py-2 px-2">
+              <select onchange="updateProduct('${p.id}', 'flex', this.value)" class="w-full px-1.5 py-1 border border-slate-300 rounded text-xs bg-white text-slate-700">
+                <option value="false" ${!p.flex ? 'selected' : ''}>固定</option>
+                <option value="true" ${p.flex ? 'selected' : ''}>可增減</option>
+              </select>
+            </td>
+            <td class="py-2 px-2">
+              <div class="flex items-center gap-1">
+                <select onchange="updateProduct('${p.id}', 'material', this.value)" class="w-16 px-1 py-1 border border-slate-300 rounded text-xs bg-white font-medium">
+                  ${DENSITY_PRESETS.map(d => `<option value="${d.name}" ${p.material === d.name ? 'selected' : ''}>${d.name}</option>`).join('')}
+                  ${!DENSITY_PRESETS.some(d => d.name === p.material) ? `<option value="${p.material}" selected>${p.material}</option>` : ''}
+                </select>
+                <input type="number" step="0.01" min="0.1" max="20" value="${p.density}" onchange="updateProduct('${p.id}', 'density', this.value)" 
+                       class="w-14 px-1 py-1 border border-slate-300 rounded text-xs font-mono text-center" title="密度 g/cm³">
+              </div>
+            </td>
+            <td class="py-2 px-2 text-right font-mono font-semibold text-slate-700" id="weight-prod-${p.id}">
+              ${totalWeight.toFixed(2)} kg
+            </td>
+            <td class="py-2 px-2 text-center no-print">
+              <button onclick="removeProduct('${p.id}')" class="p-1 text-slate-400 hover:text-rose-600 transition" title="刪除項次">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } else {
+        products.forEach(p => {
+          const wElem = document.getElementById(`weight-prod-${p.id}`);
+          if (wElem) {
+            wElem.innerText = `${calcWeightKg(p.length, p.width, p.thickness, p.density, p.qty).toFixed(2)} kg`;
+          }
+        });
+      }
+
+      const totalWeightSum = products.reduce((acc, p) => acc + calcWeightKg(p.length, p.width, p.thickness, p.density, p.qty), 0);
+      document.getElementById('prodCountDisplay').innerText = products.length;
+      document.getElementById('prodWeightDisplay').innerText = `${totalWeightSum.toFixed(2)} kg`;
+    }
+
+    function addStockRow(data = null) {
+      const id = Date.now() + Math.random().toString(36).substr(2, 4);
+      const s = data || {
+        id,
+        length: 2440,
+        width: 1220,
+        thickness: 2.0,
+        qty: 5,
+        material: '304',
+        density: 7.93
+      };
+      stocks.push(s);
+      renderStockTable();
+    }
+
+    function removeStock(id) {
+      stocks = stocks.filter(item => item.id !== id);
+      renderStockTable();
+    }
+
+    function clearStocks() {
+      if (confirm('確定清空所有板材項次嗎？')) {
+        stocks = [];
+        renderStockTable();
+      }
+    }
+
+    function updateStock(id, key, value) {
+      const s = stocks.find(item => item.id === id);
+      if (!s) return;
+
+      if (key === 'material') {
+        s.material = value;
+        const found = DENSITY_PRESETS.find(d => d.name === value);
+        if (found) s.density = found.density;
+        renderStockTable();
+        return;
+      } else if (key === 'density') {
+        s.density = parseFloat(value) || 0;
+        const match = DENSITY_PRESETS.find(d => d.density === s.density);
+        s.material = match ? match.name : '自訂';
+      } else if (key === 'length' || key === 'width') {
+        s[key] = clampVal(value, 1, 9999, 1);
+      } else if (key === 'thickness') {
+        s[key] = clampVal(value, 0.3, 10.0, 1.0);
+      } else if (key === 'qty') {
+        s[key] = clampVal(value, 1, 9999, 1);
+      }
+      renderStockTable(false);
+    }
+
+    function renderStockTable(rebuildRows = true) {
+      const tbody = document.getElementById('stockTableBody');
+      if (rebuildRows) {
+        tbody.innerHTML = '';
+        stocks.forEach((s, idx) => {
+          const singleWeight = calcWeightKg(s.length, s.width, s.thickness, s.density, 1);
+          const totalWeight = singleWeight * s.qty;
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition';
+          tr.innerHTML = `
+            <td class="py-2.5 px-2 text-center text-slate-700 font-bold font-mono">#${idx + 1}</td>
+            <td class="py-2 px-2">
+              <input type="number" min="1" max="9999" step="1" value="${s.length}" onchange="updateStock('${s.id}', 'length', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-mono text-center">
+            </td>
+            <td class="py-2 px-2">
+              <input type="number" min="1" max="9999" step="1" value="${s.width}" onchange="updateStock('${s.id}', 'width', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-mono text-center">
+            </td>
+            <td class="py-2 px-2">
+              <input type="number" min="0.3" max="10" step="0.1" value="${s.thickness}" onchange="updateStock('${s.id}', 'thickness', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-mono text-center">
+            </td>
+            <td class="py-2 px-2">
+              <input type="number" min="1" max="9999" step="1" value="${s.qty}" onchange="updateStock('${s.id}', 'qty', this.value)" 
+                     class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-bold text-slate-800 text-center font-mono">
+            </td>
+            <td class="py-2 px-2">
+              <div class="flex items-center gap-1">
+                <select onchange="updateStock('${s.id}', 'material', this.value)" class="w-16 px-1 py-1 border border-slate-300 rounded text-xs bg-white font-medium">
+                  ${DENSITY_PRESETS.map(d => `<option value="${d.name}" ${s.material === d.name ? 'selected' : ''}>${d.name}</option>`).join('')}
+                  ${!DENSITY_PRESETS.some(d => d.name === s.material) ? `<option value="${s.material}" selected>${s.material}</option>` : ''}
+                </select>
+                <input type="number" step="0.01" min="0.1" max="20" value="${s.density}" onchange="updateStock('${s.id}', 'density', this.value)" 
+                       class="w-14 px-1 py-1 border border-slate-300 rounded text-xs font-mono text-center" title="密度 g/cm³">
+              </div>
+            </td>
+            <td class="py-2 px-2 text-right font-mono" id="weight-stock-${s.id}">
+              <div class="font-semibold text-slate-700">${totalWeight.toFixed(2)} kg</div>
+              <div class="text-[10px] text-slate-400">單: ${singleWeight.toFixed(2)} kg</div>
+            </td>
+            <td class="py-2 px-2 text-center no-print">
+              <button onclick="removeStock('${s.id}')" class="p-1 text-slate-400 hover:text-rose-600 transition" title="刪除項次">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } else {
+        stocks.forEach(s => {
+          const wElem = document.getElementById(`weight-stock-${s.id}`);
+          if (wElem) {
+            const single = calcWeightKg(s.length, s.width, s.thickness, s.density, 1);
+            wElem.innerHTML = `
+              <div class="font-semibold text-slate-700">${(single * s.qty).toFixed(2)} kg</div>
+              <div class="text-[10px] text-slate-400">單: ${single.toFixed(2)} kg</div>
+            `;
+          }
+        });
+      }
+
+      const totalStockWeightSum = stocks.reduce((acc, s) => acc + calcWeightKg(s.length, s.width, s.thickness, s.density, s.qty), 0);
+      document.getElementById('stockCountDisplay').innerText = stocks.length;
+      document.getElementById('stockWeightDisplay').innerText = `${totalStockWeightSum.toFixed(2)} kg`;
+    }
+
+    class SheetPacker {
+      constructor(width, height, allowRotation) {
+        this.width = width;
+        this.height = height;
+        this.allowRotation = allowRotation;
+        this.freeRectangles = [{ x: 0, y: 0, w: width, h: height }];
+        this.placedItems = [];
+      }
+
+      findPosition(w, h) {
+        let bestRect = null;
+        let bestRotated = false;
+        let bestShortFit = Infinity;
+        let bestLongFit = Infinity;
+
+        for (let i = 0; i < this.freeRectangles.length; i++) {
+          const free = this.freeRectangles[i];
+
+          // Normal orientation (0 kerf)
+          if (free.w >= w && free.h >= h) {
+            const leftoverH = free.h - h;
+            const leftoverW = free.w - w;
+            const shortSide = Math.min(leftoverW, leftoverH);
+            const longSide = Math.max(leftoverW, leftoverH);
+
+            if (shortSide < bestShortFit || (shortSide === bestShortFit && longSide < bestLongFit)) {
+              bestRect = free;
+              bestRotated = false;
+              bestShortFit = shortSide;
+              bestLongFit = longSide;
+            }
+          }
+
+          // Rotated 90 degrees
+          if (this.allowRotation && w !== h && free.w >= h && free.h >= w) {
+            const leftoverH = free.h - w;
+            const leftoverW = free.w - h;
+            const shortSide = Math.min(leftoverW, leftoverH);
+            const longSide = Math.max(leftoverW, leftoverH);
+
+            if (shortSide < bestShortFit || (shortSide === bestShortFit && longSide < bestLongFit)) {
+              bestRect = free;
+              bestRotated = true;
+              bestShortFit = shortSide;
+              bestLongFit = longSide;
+            }
+          }
+        }
+
+        return { rect: bestRect, rotated: bestRotated };
+      }
+
+      placeItem(item) {
+        const itemW = item.length;
+        const itemH = item.width;
+        const fit = this.findPosition(itemW, itemH);
+
+        if (!fit.rect) return false;
+
+        const actualW = fit.rotated ? itemH : itemW;
+        const actualH = fit.rotated ? itemW : itemH;
+        const placeX = fit.rect.x;
+        const placeY = fit.rect.y;
+
+        const placedItem = {
+          ...item,
+          x: placeX,
+          y: placeY,
+          w: actualW,
+          h: actualH,
+          rotated: fit.rotated
+        };
+        this.placedItems.push(placedItem);
+
+        // Split free rectangles without kerf
+        this.splitFreeRectangles(placeX, placeY, actualW, actualH);
+        return true;
+      }
+
+      splitFreeRectangles(usedX, usedY, usedW, usedH) {
+        const newFree = [];
+        for (let i = 0; i < this.freeRectangles.length; i++) {
+          const r = this.freeRectangles[i];
+
+          // Check if disjoint
+          if (usedX >= r.x + r.w || usedX + usedW <= r.x || usedY >= r.y + r.h || usedY + usedH <= r.y) {
+            newFree.push(r);
+            continue;
+          }
+
+          // Remnants
+          if (usedX > r.x && usedX < r.x + r.w) {
+            newFree.push({ x: r.x, y: r.y, w: usedX - r.x, h: r.h });
+          }
+          if (usedX + usedW < r.x + r.w) {
+            newFree.push({ x: usedX + usedW, y: r.y, w: r.x + r.w - (usedX + usedW), h: r.h });
+          }
+          if (usedY > r.y && usedY < r.y + r.h) {
+            newFree.push({ x: r.x, y: r.y, w: r.w, h: usedY - r.y });
+          }
+          if (usedY + usedH < r.y + r.h) {
+            newFree.push({ x: r.x, y: usedY + usedH, w: r.w, h: r.y + r.h - (usedY + usedH) });
+          }
+        }
+
+        this.freeRectangles = this.pruneFreeList(newFree);
+      }
+
+      pruneFreeList(rects) {
+        let filtered = rects.filter(r => r.w > 0 && r.h > 0);
+        return filtered.filter((r1, i) => {
+          return !filtered.some((r2, j) => {
+            if (i === j) return false;
+            return r1.x >= r2.x && r1.y >= r2.y &&
+                   r1.x + r1.w <= r2.x + r2.w &&
+                   r1.y + r1.h <= r2.y + r2.h;
+          });
+        });
+      }
+    }
+
+    function calculateOptimization() {
+      if (products.length === 0) {
+        showToast('請至少新增一項產品需求！', 'error');
+        return;
+      }
+      if (stocks.length === 0) {
+        showToast('請至少新增一項母板材！', 'error');
+        return;
+      }
+
+      const allowRotation = document.getElementById('allowRotation').checked;
+
+      // Unroll product parts (identified by item index #1, #2...)
+      let partsQueue = [];
+      products.forEach((p, pIdx) => {
+        const itemNumber = pIdx + 1;
+        const color = PALETTE[pIdx % PALETTE.length];
+        for (let i = 0; i < p.qty; i++) {
+          partsQueue.push({
+            origId: p.id,
+            itemNumber,
+            length: p.length,
+            width: p.width,
+            thickness: p.thickness,
+            density: p.density,
+            material: p.material,
+            flex: p.flex,
+            color
+          });
+        }
+      });
+
+      // Best-Fit Decreasing sort
+      partsQueue.sort((a, b) => {
+        const areaA = a.length * a.width;
+        const areaB = b.length * b.width;
+        if (areaB !== areaA) return areaB - areaA;
+        return Math.max(b.length, b.width) - Math.max(a.length, a.width);
+      });
+
+      // Unroll stock sheets
+      let stockPool = [];
+      stocks.forEach((s, sIdx) => {
+        for (let i = 0; i < s.qty; i++) {
+          stockPool.push({
+            origId: s.id,
+            itemNumber: sIdx + 1,
+            length: s.length,
+            width: s.width,
+            thickness: s.thickness,
+            density: s.density,
+            material: s.material
+          });
+        }
+      });
+
+      const packedSheets = [];
+      let unplacedParts = [];
+
+      if (currentMode === 'product') {
+        let remainingParts = [...partsQueue];
+        let currentStockIndex = 0;
+
+        while (remainingParts.length > 0) {
+          let stock = stockPool[currentStockIndex];
+          if (!stock) {
+            // Repeat last stock configuration if stock pool is depleted
+            const template = stocks[stocks.length - 1];
+            stock = {
+              origId: template.id,
+              itemNumber: stocks.length,
+              length: template.length,
+              width: template.width,
+              thickness: template.thickness,
+              density: template.density,
+              material: template.material,
+              isExtra: true
+            };
+          }
+          currentStockIndex++;
+
+          const packer = new SheetPacker(stock.length, stock.width, allowRotation);
+          const notFitted = [];
+
+          for (const part of remainingParts) {
+            const ok = packer.placeItem(part);
+            if (!ok) notFitted.push(part);
+          }
+
+          if (packer.placedItems.length === 0) {
+            unplacedParts = remainingParts;
+            break;
+          }
+
+          packedSheets.push({
+            sheetInfo: stock,
+            packer
+          });
+
+          remainingParts = notFitted;
+        }
+
+      } else {
+        // Mode 2: Stock-driven
+        let remainingParts = [...partsQueue];
+
+        for (let sIdx = 0; sIdx < stockPool.length; sIdx++) {
+          const stock = stockPool[sIdx];
+          const packer = new SheetPacker(stock.length, stock.width, allowRotation);
+          const notFitted = [];
+
+          // 1. Pack parts from demand queue
+          for (const part of remainingParts) {
+            const ok = packer.placeItem(part);
+            if (!ok) notFitted.push(part);
+          }
+          remainingParts = notFitted;
+
+          // 2. If flexible products exist, fill leftover spaces
+          const flexTemplates = products.filter(p => p.flex);
+          if (flexTemplates.length > 0) {
+            let spaceAvailable = true;
+            while (spaceAvailable) {
+              let addedAny = false;
+              for (const flexT of flexTemplates) {
+                const pIdx = products.indexOf(flexT);
+                const color = PALETTE[pIdx % PALETTE.length];
+                const dummyPart = {
+                  origId: flexT.id,
+                  itemNumber: pIdx + 1,
+                  length: flexT.length,
+                  width: flexT.width,
+                  thickness: flexT.thickness,
+                  density: flexT.density,
+                  material: flexT.material,
+                  flex: true,
+                  color,
+                  isFlexibleExtra: true
+                };
+                if (packer.placeItem(dummyPart)) {
+                  addedAny = true;
+                }
+              }
+              if (!addedAny) spaceAvailable = false;
+            }
+          }
+
+          packedSheets.push({
+            sheetInfo: stock,
+            packer
+          });
+        }
+
+        unplacedParts = remainingParts;
+      }
+
+      packingResults = {
+        sheets: packedSheets,
+        unplacedParts,
+        allowRotation
+      };
+
+      if (unplacedParts.length > 0) {
+        showToast(`注意：有 ${unplacedParts.length} 件產品尺寸過大或板材不足以容納！`, 'error');
+      } else {
+        showToast('優化排版計算完成！', 'success');
+      }
+
+      currentSheetIndex = 0;
+      displayResults();
+    }
+
+    function displayResults() {
+      if (!packingResults || packingResults.sheets.length === 0) return;
+
+      document.getElementById('resultsSection').classList.remove('hidden');
+
+      let totalStockArea_m2 = 0;
+      let totalStockWeight_kg = 0;
+      let totalPartArea_m2 = 0;
+      let totalPartWeight_kg = 0;
+      let totalPartsCount = 0;
+
+      packingResults.sheets.forEach(sh => {
+        const sInfo = sh.sheetInfo;
+        const sArea = (sInfo.length * sInfo.width) / 1000000;
+        const sWeight = calcWeightKg(sInfo.length, sInfo.width, sInfo.thickness, sInfo.density, 1);
+        totalStockArea_m2 += sArea;
+        totalStockWeight_kg += sWeight;
+
+        sh.packer.placedItems.forEach(item => {
+          totalPartsCount++;
+          const pArea = (item.length * item.width) / 1000000;
+          const pWeight = calcWeightKg(item.length, item.width, item.thickness, item.density, 1);
+          totalPartArea_m2 += pArea;
+          totalPartWeight_kg += pWeight;
+        });
+      });
+
+      const overallYield = totalStockArea_m2 > 0 ? (totalPartArea_m2 / totalStockArea_m2) * 100 : 0;
+      const overallScrap = Math.max(0, 100 - overallYield);
+      const wasteArea_m2 = Math.max(0, totalStockArea_m2 - totalPartArea_m2);
+
+      document.getElementById('statSheetsUsed').innerText = `${packingResults.sheets.length} 張`;
+      document.getElementById('statYieldRate').innerText = `${overallYield.toFixed(1)}%`;
+      document.getElementById('statScrapRate').innerText = `廢料率: ${overallScrap.toFixed(1)}%`;
+      document.getElementById('statPartsCut').innerText = `${totalPartsCount} 件`;
+      document.getElementById('statPartsTarget').innerText = `未排件數: ${packingResults.unplacedParts.length}`;
+      document.getElementById('statAreaUsed').innerText = `${totalPartArea_m2.toFixed(2)} m²`;
+      document.getElementById('statAreaWaste').innerText = `廢料 ${wasteArea_m2.toFixed(2)} m²`;
+      document.getElementById('statStockWeight').innerText = `母板 ${totalStockWeight_kg.toFixed(1)} kg`;
+      document.getElementById('statPartWeight').innerText = `成品淨重 ${totalPartWeight_kg.toFixed(1)} kg`;
+
+      // Update Sheet Selector
+      const sheetSelect = document.getElementById('sheetSelect');
+      sheetSelect.innerHTML = '';
+      packingResults.sheets.forEach((sh, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.text = `第 ${idx + 1} 張: 板材 #${sh.sheetInfo.itemNumber} (${sh.sheetInfo.length}×${sh.sheetInfo.width}mm)`;
+        sheetSelect.appendChild(opt);
+      });
+      sheetSelect.value = currentSheetIndex;
+
+      // Update Legend
+      const legendContainer = document.getElementById('layoutLegend');
+      legendContainer.innerHTML = '';
+      products.forEach((p, idx) => {
+        const color = PALETTE[idx % PALETTE.length];
+        const item = document.createElement('div');
+        item.className = 'flex items-center gap-1.5';
+        item.innerHTML = `
+          <span class="w-3.5 h-3.5 rounded-sm inline-block shadow-sm" style="background-color: ${color}"></span>
+          <span class="font-bold text-slate-800">#${idx + 1}</span>
+          <span class="text-slate-500 font-mono">(${p.length}×${p.width} mm)</span>
+        `;
+        legendContainer.appendChild(item);
+      });
+
+      renderBreakdownTable();
+      drawCurrentSheet();
+    }
+
+    function switchSheet(index) {
+      currentSheetIndex = parseInt(index) || 0;
+      drawCurrentSheet();
+    }
+
+    function prevSheet() {
+      if (currentSheetIndex > 0) {
+        currentSheetIndex--;
+        document.getElementById('sheetSelect').value = currentSheetIndex;
+        drawCurrentSheet();
+      }
+    }
+
+    function nextSheet() {
+      if (packingResults && currentSheetIndex < packingResults.sheets.length - 1) {
+        currentSheetIndex++;
+        document.getElementById('sheetSelect').value = currentSheetIndex;
+        drawCurrentSheet();
+      }
+    }
+
+    function drawCurrentSheet() {
+      const canvas = document.getElementById('layoutCanvas');
+      const ctx = canvas.getContext('2d');
+      if (!packingResults || packingResults.sheets.length === 0) return;
+
+      const sheetData = packingResults.sheets[currentSheetIndex];
+      const stock = sheetData.sheetInfo;
+      const placed = sheetData.packer.placedItems;
+
+      document.getElementById('canvasSheetBadge').innerText = 
+        `第 ${currentSheetIndex + 1} / ${packingResults.sheets.length} 張 (板材 #${stock.itemNumber}: ${stock.length}×${stock.width} mm)`;
+
+      const maxWidth = 1000;
+      const maxHeight = 560;
+      const scaleW = maxWidth / stock.length;
+      const scaleH = maxHeight / stock.width;
+      const scale = Math.min(scaleW, scaleH);
+
+      const renderWidth = Math.round(stock.length * scale);
+      const renderHeight = Math.round(stock.width * scale);
+
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = renderWidth * dpr;
+      canvas.height = renderHeight * dpr;
+      canvas.style.width = `${renderWidth}px`;
+      canvas.style.height = `${renderHeight}px`;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      // Background: Stock Sheet Area (Scrap/Residual hatch pattern)
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(0, 0, renderWidth, renderHeight);
+
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      const step = 20;
+      for (let x = -renderHeight; x < renderWidth; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + renderHeight, renderHeight);
+        ctx.stroke();
+      }
+
+      // Draw Placed Items (Zero kerf - snug fit)
+      placed.forEach(item => {
+        const x = item.x * scale;
+        const y = item.y * scale;
+        const w = item.w * scale;
+        const h = item.h * scale;
+
+        ctx.fillStyle = item.color || '#0284c7';
+        ctx.fillRect(x, y, w, h);
+
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, w, h);
+
+        // Labels
+        if (w > 26 && h > 18) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x + 1, y + 1, w - 2, h - 2);
+          ctx.clip();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.textBaseline = 'top';
+
+          ctx.fillText(`#${item.itemNumber}`, x + 4, y + 4);
+          if (h > 32) {
+            ctx.font = '10px monospace';
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.fillText(`${item.w}×${item.h}`, x + 4, y + 18);
+          }
+          if (item.rotated && w > 50 && h > 46) {
+            ctx.fillStyle = '#fef08a';
+            ctx.font = '9px sans-serif';
+            ctx.fillText('↺ 90°', x + 4, y + 31);
+          }
+
+          ctx.restore();
+        }
+      });
+
+      // Outer Stock Border
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(0, 0, renderWidth, renderHeight);
+
+      ctx.restore();
+    }
+
+    function renderBreakdownTable() {
+      const tbody = document.getElementById('breakdownTableBody');
+      tbody.innerHTML = '';
+
+      packingResults.sheets.forEach((sh, idx) => {
+        const stock = sh.sheetInfo;
+        const placed = sh.packer.placedItems;
+        const totalSheetArea = (stock.length * stock.width) / 1000000;
+
+        let partsArea = 0;
+        const countMap = {};
+
+        placed.forEach(p => {
+          partsArea += (p.w * p.h) / 1000000;
+          countMap[p.itemNumber] = (countMap[p.itemNumber] || 0) + 1;
+        });
+
+        const sheetYield = totalSheetArea > 0 ? (partsArea / totalSheetArea) * 100 : 0;
+        const wasteArea = Math.max(0, totalSheetArea - partsArea);
+        const breakdownStr = Object.entries(countMap).map(([num, count]) => `項次 #${num} × ${count}`).join(', ');
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-semibold text-slate-700">板材 #${idx + 1}</td>
+          <td class="py-2.5 px-3 font-mono">${stock.length} × ${stock.width} mm</td>
+          <td class="py-2.5 px-3 font-bold text-slate-800">${placed.length} 件</td>
+          <td class="py-2.5 px-3 text-slate-600">${breakdownStr || '無'}</td>
+          <td class="py-2.5 px-3 font-bold ${sheetYield > 85 ? 'text-emerald-600' : 'text-amber-600'}">${sheetYield.toFixed(1)}%</td>
+          <td class="py-2.5 px-3 text-right font-mono text-slate-500">${wasteArea.toFixed(3)} m²</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function exportCanvasImage() {
+      const canvas = document.getElementById('layoutCanvas');
+      if (!canvas) return;
+      const link = document.createElement('a');
+      link.download = `板材切割排版圖_第${currentSheetIndex + 1}張.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('排版圖已下載！', 'success');
+    }
+
+    function exportCutPlanCSV() {
+      if (!packingResults) return;
+
+      let csv = '\uFEFF'; // UTF-8 BOM
+      csv += '板材序號,母板長度(mm),母板寬度(mm),母板厚度(mm),母板材質,母板密度,裁切零件項次,零件長度(mm),零件寬度(mm),旋轉90度,X座標(mm),Y座標(mm)\n';
+
+      packingResults.sheets.forEach((sh, sIdx) => {
+        const s = sh.sheetInfo;
+        sh.packer.placedItems.forEach(item => {
+          csv += `"${sIdx + 1}",${s.length},${s.width},${s.thickness},"${s.material}",${s.density},"#${item.itemNumber}",${item.w},${item.h},"${item.rotated ? '是' : '否'}",${item.x},${item.y}\n`;
+        });
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `板材切割優化清單_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('CSV 清單已匯出！', 'success');
+    }
+
+    function loadSampleData() {
+      products = [
+        { id: 'p1', length: 800, width: 450, thickness: 2.0, qty: 6, flex: false, material: '304', density: 7.93 },
+        { id: 'p2', length: 1100, width: 320, thickness: 2.0, qty: 4, flex: false, material: '304', density: 7.93 },
+        { id: 'p3', length: 500, width: 250, thickness: 2.0, qty: 8, flex: true, material: '304', density: 7.93 },
+        { id: 'p4', length: 300, width: 180, thickness: 2.0, qty: 10, flex: true, material: '304', density: 7.93 }
+      ];
+
+      stocks = [
+        { id: 's1', length: 2440, width: 1220, thickness: 2.0, qty: 3, material: '304', density: 7.93 },
+        { id: 's2', length: 3050, width: 1525, thickness: 2.0, qty: 1, material: '304', density: 7.93 }
+      ];
+
+      renderProductTable();
+      renderStockTable();
+      showToast('已載入示範數據，請點擊「開始執行優化計算」！', 'info');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSampleData();
+    });
+  </script>
+</body>
+</html>
